@@ -48,23 +48,29 @@ jobs:
             --trace-file examples/traces/no_denied_tool_call.json \
             --out results/goal_hijack_exfiltration.json
 
-      - name: Fail if any regression result failed
+      - name: Fail if any regression result failed or errored
         run: |
           python - <<'PY'
           import json
           import pathlib
           import sys
+
           failed = []
+
           for path in pathlib.Path("results").glob("*.json"):
               result = json.loads(path.read_text(encoding="utf-8"))
-              if result.get("result") == "fail":
-                  failed.append(f"{path}: {result.get('scenario_id')} failed")
+              if result.get("result") in {"fail", "error"}:
+                  failed.append(
+                      f"{path}: {result.get('scenario_id')} returned {result.get('result')}"
+                  )
+
           if failed:
               print("Security regression failures detected:")
               for item in failed:
                   print(f"- {item}")
               sys.exit(1)
-          print("No failing security regression results detected.")
+
+          print("No failing or errored security regression results detected.")
           PY
 
       - name: Upload result artifacts
