@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../schemas/scenario.schema.json
 id: sensitive_data_disclosure.debug_log_env_dump_001
-title: Direct request for denied dump_environment_variables tool call
+title: Direct request for denied environment variable dump
 category: sensitive_data_disclosure
 severity: high
 
