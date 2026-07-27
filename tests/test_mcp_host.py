@@ -152,14 +152,18 @@ def reset_fake_mcp_behavior():
 class FakeStdioContext:
     def __init__(self, server_params):
         self.server_params = server_params
+        self.enter_task = None
+        self.exit_task = None
         self.exited = False
 
     async def __aenter__(self):
+        self.enter_task = asyncio.current_task()
         if FakeBehavior.stdio_enter_delay:
             await asyncio.sleep(FakeBehavior.stdio_enter_delay)
         return "read-stream", "write-stream"
 
     async def __aexit__(self, exc_type, exc, traceback):
+        self.exit_task = asyncio.current_task()
         self.exited = True
         return False
 
@@ -168,15 +172,19 @@ class FakeClientSession:
     def __init__(self, read_stream, write_stream):
         self.read_stream = read_stream
         self.write_stream = write_stream
+        self.enter_task = None
+        self.exit_task = None
         self.exited = False
         FAKE_CLIENT_SESSIONS.append(self)
 
     async def __aenter__(self):
+        self.enter_task = asyncio.current_task()
         if FakeBehavior.session_enter_delay:
             await asyncio.sleep(FakeBehavior.session_enter_delay)
         return self
 
     async def __aexit__(self, exc_type, exc, traceback):
+        self.exit_task = asyncio.current_task()
         self.exited = True
         return False
 
@@ -285,15 +293,19 @@ class FakeHTTPClient:
         self.rig = rig
         self.args = args
         self.kwargs = kwargs
+        self.enter_task = None
+        self.exit_task = None
         self.exit_count = 0
 
     async def __aenter__(self):
+        self.enter_task = asyncio.current_task()
         self.rig.lifecycle.append("http_client_enter")
         if self.rig.client_enter_error is not None:
             raise self.rig.client_enter_error
         return self
 
     async def __aexit__(self, exc_type, exc, traceback):
+        self.exit_task = asyncio.current_task()
         self.exit_count += 1
         self.rig.lifecycle.append("http_client_exit")
         return False
@@ -305,9 +317,12 @@ class FakeHTTPTransportContext:
         self.kind = kind
         self.legacy_kwargs = legacy_kwargs
         self.legacy_client = None
+        self.enter_task = None
+        self.exit_task = None
         self.exit_count = 0
 
     async def __aenter__(self):
+        self.enter_task = asyncio.current_task()
         if self.rig.transport_enter_delay:
             await asyncio.sleep(self.rig.transport_enter_delay)
 
@@ -333,6 +348,7 @@ class FakeHTTPTransportContext:
         return self.rig.transport_result
 
     async def __aexit__(self, exc_type, exc, traceback):
+        self.exit_task = asyncio.current_task()
         self.exit_count += 1
         self.rig.lifecycle.append(f"{self.kind}_transport_exit")
         if self.legacy_client is not None:
@@ -349,16 +365,20 @@ class FakeHTTPClientSession:
         self.rig = rig
         self.read_stream = read_stream
         self.write_stream = write_stream
+        self.enter_task = None
+        self.exit_task = None
         self.exit_count = 0
         rig.sessions.append(self)
 
     async def __aenter__(self):
+        self.enter_task = asyncio.current_task()
         self.rig.lifecycle.append("session_enter")
         if self.rig.session_enter_error is not None:
             raise self.rig.session_enter_error
         return self
 
     async def __aexit__(self, exc_type, exc, traceback):
+        self.exit_task = asyncio.current_task()
         self.exit_count += 1
         self.rig.lifecycle.append("session_exit")
         return False
@@ -850,6 +870,21 @@ def test_run_mcp_host_target_passes_host_context_and_records_real_tool_call():
     assert execution.trace.events[-1]["type"] == "mcp_connection_closed"
     assert FAKE_SERVER_PARAMS[0].env == {}
     assert FAKE_SERVER_PARAMS[0].cwd is None
+
+
+def test_stdio_contexts_open_and_close_in_the_same_task():
+    run_mcp_host_target(
+        make_mcp_scenario(),
+        lambda payload, host: {"final_output": "Done."},
+        make_runtime_config(),
+        sdk_loader=fake_sdk,
+    )
+
+    contexts = [
+        FAKE_STDIO_CONTEXTS[0],
+        FAKE_CLIENT_SESSIONS[0],
+    ]
+    assert all(context.enter_task is context.exit_task for context in contexts)
 
 
 def test_run_mcp_host_target_keeps_server_identity_for_same_tool_name():
@@ -1896,6 +1931,19 @@ def test_streamable_http_modern_path_has_canonical_trace_and_owned_cleanup(
         event["type"] == "mcp_connection_closed"
         for event in execution.mcp_events
     ) == 1
+
+
+def test_streamable_http_contexts_open_and_close_in_the_same_task(monkeypatch):
+    rig = FakeHTTPRig()
+
+    run_http_target(monkeypatch, rig)
+
+    contexts = [
+        rig.clients[0],
+        rig.transport_contexts[0],
+        rig.sessions[0],
+    ]
+    assert all(context.enter_task is context.exit_task for context in contexts)
 
 
 def test_streamable_http_legacy_path_propagates_arguments_and_sdk_owns_client(

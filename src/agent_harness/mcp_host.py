@@ -724,7 +724,8 @@ async def _wait_for_mcp_startup_step(
     failure_message: str | None = None,
 ) -> Any:
     try:
-        return await asyncio.wait_for(awaitable, timeout=timeout_seconds)
+        async with asyncio.timeout(timeout_seconds):
+            return await awaitable
     except TimeoutError as exc:
         raise AdapterError(
             f"Timed out while trying to {operation} for MCP server {server_id}"
