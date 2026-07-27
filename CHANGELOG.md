@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`suite` subcommand** — `agent-harness suite <paths...> --trace-dir <dir>`
+  runs a directory of scenarios against trace files (mapped by scenario id to
+  `<trace-dir>/<scenario_id>.json`) and emits one aggregate summary plus
+  optional per-scenario result JSON via `--out-dir`. Scenarios that cannot run
+  (missing trace, malformed trace, invalid scenario, duplicate id) are recorded
+  as per-scenario `error`s without aborting the suite, and `--exit-on-fail`
+  composes the same way as `run`. Output validates against the new
+  `schemas/suite_result.schema.json`. Single-scenario `run` is unchanged.
 - **`--sarif-out` flag** — write assertion results as SARIF 2.1.0 for GitHub
   Code Scanning and other SARIF-aware dashboards. Only `fail` and `error`
   assertions are emitted as results, since SARIF results represent findings.
@@ -34,6 +42,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--target-timeout` flag** — configure the request timeout in seconds for live
   HTTP targets via `agent-harness run --live` (default 30). 
 - **`version` field on `schemas/scenario.schema.json` and `schemas/result.schema.json`** — the authoritative numeric state of each schema, per the versioning policy in `docs/schema-versioning.md`. Both schemas now carry `"version": 1`.
+
+### Changed
+
+- **Scenario `id` charset** — scenario ids are now constrained to
+  `[A-Za-z0-9._-]` (enforced by both the Python validator and
+  `schemas/scenario.schema.json`). Ids are used as filesystem path components
+  by the new `suite` runner, so this prevents an id from traversing paths
+  outside the configured trace or output directory. All bundled scenarios
+  already comply. This narrows a previously-valid input, so per
+  `docs/schema-versioning.md` it is a **breaking** schema change:
+  `schemas/scenario.schema.json` is bumped to `"version": 2`. Per the pre-1.0
+  rule, the package version is not bumped to a new major line.
 
 ## [0.1.0] — 2026-05-17
 

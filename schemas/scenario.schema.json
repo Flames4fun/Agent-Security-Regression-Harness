@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://owasp.org/schemas/agent-security-regression-harness/scenario.schema.json",
   "title": "OWASP Agent Security Regression Harness Scenario",
-  "version": 1,
+  "version": 2,
   "type": "object",
   "required": [
     "id",
@@ -18,7 +18,8 @@
   "properties": {
     "id": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._-]+$"
     },
     "title": {
       "type": "string",
