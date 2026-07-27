@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **LangGraph update-stream traces** — add opt-in
+  `--langchain-stream-updates` execution for synchronous
+  `stream_mode="updates"` targets while preserving the existing `invoke()` path.
 - **`--openai-agent-goal-event` flag** — record an explicit `goal` event for
   OpenAI Agents SDK runs so `goal_integrity` assertions can be evaluated
   without inferring intent from model output.
